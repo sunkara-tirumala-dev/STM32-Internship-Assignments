@@ -1,0 +1,44 @@
+//gpio.c file
+#include "gpio.h"
+#define GPIOAEN (1U<<0)
+#define LED_BS5 (1U<<5)
+#define LED_BR5 (1U<<21)
+void led_init(void)
+{
+RCC->AHB1ENR |= GPIOAEN;
+GPIOA->MODER |=(1U<<10);
+GPIOA->MODER &=~(1U<<11);
+}
+void led_on(void)
+{
+GPIOA->BSRR |=LED_BS5;
+}
+void led_off(void)
+{
+GPIOA->BSRR |=LED_BR5;
+}
+
+
+//gpio.h file
+#ifndef GPIO_H_
+#define GPIO_H_
+#include "stm32f4xx.h"
+void led_init(void);
+void led_on(void);
+void led_off(void);
+#endif
+
+
+//main.c file
+#include "gpio.h"
+int main(void)
+{
+led_init();
+while(1)
+{
+led_on();
+for(int i = 0; i < 100000; i++){}
+led_off();
+for(int i = 0; i < 100000; i++){}
+}
+}
