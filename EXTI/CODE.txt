@@ -1,0 +1,238 @@
+*/gpio.h file/*
+#ifndef GPIO_H_
+#define GPIO_H_
+#include <stdbool.h>
+#include "stm32f4xx.h"
+void led_init(void);
+void led_on(void);
+void led_off(void);
+void led_toggle(void);
+void button_init(void);
+bool get_btn_state(void);
+#endif
+
+
+*/gpio_exti.h file/*
+#ifndef GPIO_EXTI_H__
+#define GPIO_EXTI_H__
+#include <stdint.h>
+#include "stm32f4xx.h"
+#define LINE13 (1U<<13)
+void pc13_exti_init(void);
+#endif
+
+
+*/tim.h file/*
+#include "stm32f4xx.h"
+#ifndef TIM_H_
+#define TIM_H_
+#define SR_UIF  (1U<<0)
+void tim2_1hz_init(void);
+#endif
+
+
+*/uart.h file/*
+#ifndef __UART_H__
+#define __UART_H__
+#include "stm32f4xx.h"
+void uart_init(void);
+#endif
+
+
+*/adc.h file/*
+#ifndef ADC_H__
+#define ADC_H__
+#include <stdint.h>
+#include "stm32f4xx.h"
+void pa1_adc_init(void);
+void start_conversion(void);
+uint32_t adc_read(void);
+#endif
+
+
+*/adc.c file/*
+#include "adc.h"
+#define GPIOAEN	(1U<<0)
+#define ADC1EN	(1U<<8)
+#define ADC_CH1	(1U<<0)
+#define ADC_SEQ_LEN_1  0x00
+#define CR2_ADCON (1U<<0)
+#define CR2_CONT (1U<<1)
+#define CR2_SWSTART (1U<<30)
+#define SR_EOC	(1U<<1)
+void pa1_adc_init(void)
+{
+RCC->AHB1ENR |= GPIOAEN;
+GPIOA->MODER |=(1U<<2);
+GPIOA->MODER |=(1U<<3);
+RCC->APB2ENR |=ADC1EN;
+ADC1->SQR3 = ADC_CH1;
+ADC1->SQR1 = ADC_SEQ_LEN_1;
+ADC1->CR2 |=CR2_ADCON;
+}
+void start_conversion(void)
+{
+ADC1->CR2 |=CR2_CONT;
+ADC1->CR2 |=CR2_SWSTART;
+}
+uint32_t adc_read(void)
+{
+while(!(ADC1->SR & SR_EOC)){}
+return (ADC1->DR);
+}
+
+
+*/uart.c file/*
+#include <stdint.h>
+#include "uart.h"
+#define GPIOAEN	(1U<<0)
+#define UART2EN	(1U<<17)
+#define DBG_UART_BAUDRATE 115200
+#define SYS_FREQ 16000000
+#define APB1_CLK SYS_FREQ
+#define CR1_TE	(1U<<3)
+#define CR1_UE	(1U<<13)
+#define SR_TXE	(1U<<7)
+static void uart_set_baudrate(uint32_t periph_clk,uint32_t baudrate);
+static void uart_write(int ch);
+int __io_putchar(int ch)
+{
+uart_write(ch);
+return ch;
+}
+void uart_init(void)
+{
+RCC->AHB1ENR |= GPIOAEN;
+GPIOA->MODER &=~(1U<<4);
+GPIOA->MODER |=(1U<<5);
+GPIOA->AFR[0] |=(1U<<8);
+GPIOA->AFR[0] |=(1U<<9);
+GPIOA->AFR[0] |=(1U<<10);
+GPIOA->AFR[0] &=~(1U<<11);
+RCC->APB1ENR |=	UART2EN;
+uart_set_baudrate(APB1_CLK,DBG_UART_BAUDRATE);
+USART2->CR1 = CR1_TE;
+USART2->CR1 |= CR1_UE;
+}
+static void uart_write(int ch)
+{
+while(!(USART2->SR & SR_TXE)){}
+USART2->DR =(ch & 0xFF);
+}
+static uint16_t compute_uart_bd(uint32_t periph_clk,uint32_t baudrate)
+{
+return((periph_clk + (baudrate/2U))/baudrate);
+}
+static void uart_set_baudrate(uint32_t periph_clk,uint32_t baudrate)
+{
+USART2->BRR = compute_uart_bd(periph_clk,baudrate);
+}
+
+
+*/tim.c file/*
+#include "tim.h"
+#define TIM2EN	(1U<<0)
+#define CR1_CEN	(1U<<0)
+void tim2_1hz_init(void)
+{
+RCC->APB1ENR |=TIM2EN;
+TIM2->PSC =  1600 - 1 ;
+TIM2->ARR =  10000 - 1;
+TIM2->CNT = 0;
+TIM2->CR1 = CR1_CEN;
+}
+
+
+*/gpio_exti.c file/*
+#include "gpio_exti.h"
+#define GPIOCEN (1U<<2)
+#define SYSCFGEN (1U<<14)
+void pc13_exti_init(void)
+{
+__disable_irq();
+RCC->AHB1ENR |=GPIOCEN;
+GPIOC->MODER &=~(1U<<26);
+GPIOC->MODER &=~(1U<<27);
+RCC->APB2ENR |=SYSCFGEN;
+SYSCFG->EXTICR[3] |=(1U<<5);
+EXTI->IMR |=(1U<<13);
+EXTI->FTSR |=(1U<<13);
+NVIC_EnableIRQ(EXTI15_10_IRQn);
+__enable_irq();
+}
+
+
+*/gpio.c file/*
+#include "gpio.h"
+#define GPIOAEN	(1U<<0)
+#define GPIOCEN	(1U<<2)
+#define LED_BS5	(1U<<5) 
+#define LED_BR5	(1U<<21) 
+#define BTN_PIN	(1U<<13)
+#define LED_PIN	(1U<<5)
+void led_init(void)
+{
+RCC->AHB1ENR |= GPIOAEN;
+GPIOA->MODER |=(1U<<10);
+GPIOA->MODER &=~(1U<<11);
+}
+void led_on(void)
+{
+GPIOA->BSRR |=LED_BS5;
+}
+void led_off(void)
+{
+GPIOA->BSRR |=LED_BR5;
+}
+void led_toggle(void)
+{
+GPIOA->ODR ^=LED_PIN;
+}
+void button_init(void)
+{
+RCC->AHB1ENR |=GPIOCEN;
+GPIOC->MODER &=~(1U<<26);
+GPIOC->MODER &=~(1U<<27);
+}
+bool get_btn_state(void)
+{
+if(GPIOC->IDR & BTN_PIN)
+{
+return false;
+}
+else
+{
+return true;
+}
+}
+
+
+*/main.c file/*
+#include <stdio.h>
+#include "adc.h"
+#include "uart.h"
+#include "gpio.h"
+#include "gpio_exti.h"
+uint8_t g_btn_press;
+int main(void)
+{
+uart_init();
+led_init();
+pc13_exti_init();
+while(1)
+{
+}
+}
+static void exti_callback(void)
+{
+printf("BTN Pressed...\n\r");
+led_toggle();
+}
+void EXTI15_10_IRQHandler(void) {
+if((EXTI->PR & LINE13)!=0)
+{
+EXTI->PR |=LINE13;
+exti_callback();
+}
+}
+
