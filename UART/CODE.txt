@@ -1,0 +1,93 @@
+/* UART.H FILE*/
+#ifndef UART_H
+#define UART_H
+#include "stm32f4xx.h"
+void uart_init(void);
+void uart_write(int ch);
+char uart_read(void);
+#endif
+
+
+
+/* UART.C FILE */
+#include "uart.h"
+#define GPIOAEN   (1U<<0)
+#define USART2EN  (1U<<17)
+#define CR1_TE (1U<<3)
+#define CR1_RE (1U<<2)
+#define CR1_UE (1U<<13)
+#define SR_TXE  (1U<<7)
+#define SR_RXNE (1U<<5)
+#define SYS_FREQ 16000000U
+#define BAUDRATE 9600U
+static uint16_t compute_bd(uint32_t periph_clk, uint32_t baud)
+{
+return (periph_clk + (baud/2U)) / baud;
+}
+void uart_init(void)
+{
+RCC->AHB1ENR |= GPIOAEN;
+RCC->APB1ENR |= USART2EN;
+GPIOA->MODER &= ~(0xFU << 4);
+GPIOA->MODER |=  (0xAU << 4);
+GPIOA->AFR[0] &= ~(0xFFU << 8);
+GPIOA->AFR[0] |=  (0x77U << 8);
+GPIOA->OSPEEDR |= (0xFU << 4);
+GPIOA->PUPDR &= ~(0xFU << 4);
+GPIOA->PUPDR |=  (0x4U << 4);
+USART2->BRR = compute_bd(SYS_FREQ, BAUDRATE);
+USART2->CR1 |= CR1_TE | CR1_RE;
+USART2->CR1 |= CR1_UE;
+}
+void uart_write(int ch)
+{
+while(!(USART2->SR & SR_TXE));
+USART2->DR = (ch & 0xFF);
+}
+char uart_read(void)
+{
+while(!(USART2->SR & SR_RXNE));
+return (char)(USART2->DR & 0xFF);
+}
+
+
+
+/* MAIN.C FILE */
+#include "stm32f4xx.h"
+#include "uart.h"
+#define GPIOAEN (1U<<0)
+#define GPIOCEN (1U<<2)
+void delay(volatile int t)
+{
+while(t--);
+}
+int main(void)
+{
+RCC->AHB1ENR |= GPIOAEN | GPIOCEN;
+GPIOA->MODER &= ~(3U << 10);
+GPIOA->MODER |=  (1U << 10);
+GPIOA->ODR &= ~(1U << 5);
+GPIOC->MODER &= ~(3U << 26);
+GPIOC->PUPDR &= ~(3U << 26);
+GPIOC->PUPDR |=  (1U << 26);
+uart_init();
+int last_state = 1;
+while(1)
+{
+int current_state = (GPIOC->IDR & (1U<<13));
+if(last_state && !current_state)
+{
+uart_write('1');
+delay(300000);
+}
+last_state = current_state;
+if(USART2->SR & (1U<<5))
+{
+char data = uart_read();
+if(data == '1')
+{
+GPIOA->ODR ^= (1U<<5);
+}
+}
+}
+}
