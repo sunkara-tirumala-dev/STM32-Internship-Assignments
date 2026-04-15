@@ -1,0 +1,74 @@
+//gpio.c file
+#include "gpio.h"
+#define GPIOAEN (1U<<0)
+#define LED_BS5 (1U<<5)
+#define LED_BR5 (1U<<21) 
+void led_init(void)
+{
+RCC->AHB1ENR |= GPIOAEN;
+GPIOA->MODER |=(1U<<10);
+GPIOA->MODER &=~(1U<<11);
+}
+void led_on(void)
+{
+GPIOA->BSRR |=LED_BS5;
+}
+void led_off(void)
+{
+GPIOA->BSRR |=LED_BR5;
+}
+#define GPIOAEN (1U<<0)
+#define GPIOCEN (1U<<2)
+#define BTN_PIN (1U<<13)
+void button_init(void)
+{
+RCC->AHB1ENR |=GPIOCEN;
+GPIOC->MODER &=~(1U<<26);
+GPIOC->MODER &=~(1U<<27);
+}
+bool get_btn_state(void)
+{
+	if(GPIOC->IDR & BTN_PIN)
+	{
+	return false;
+	}
+	else
+	{
+	return true;
+	}
+	}
+
+
+//gpio.h file
+#ifndef GPIO_H_
+#define GPIO_H_
+#include "stm32f4xx.h"
+void led_init(void);
+void led_on(void);
+void led_off(void);
+#endif
+#include <stdbool.h>
+void button_init(void);
+bool get_btn_state(void);
+
+
+//main.c file
+#include "gpio.h"
+bool btn_state;
+int main(void)
+{
+led_init();
+button_init();
+while(1)
+{
+btn_state = get_btn_state();
+if(btn_state)
+{
+led_on();
+}
+else
+{
+led_off();
+}
+}
+}
